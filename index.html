@@ -1,0 +1,152 @@
+<!-- save as marketplace_demo.html and open in browser -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Safe Game Accounts Marketplace (Demo)</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#f6f7fb;margin:0;padding:20px}
+    .container{max-width:900px;margin:0 auto;background:#fff;padding:20px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.06)}
+    h1{margin-top:0}
+    label{display:block;margin:8px 0 4px}
+    input[type=text],textarea,select{width:100%;padding:8px;border:1px solid #ddd;border-radius:6px}
+    .row{display:flex;gap:12px}
+    .col{flex:1}
+    .card{border:1px solid #eee;padding:12px;border-radius:8px;margin-top:12px}
+    button{background:#ff7a18;color:#fff;border:0;padding:10px 14px;border-radius:8px;cursor:pointer}
+    .muted{color:#666;font-size:13px}
+    .listing{border:1px solid #eee;padding:12px;border-radius:8px;margin:12px 0}
+    .small{font-size:13px;color:#444}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Safe Accounts Marketplace — Demo</h1>
+    <p class="muted">Note: <strong>Never</strong> enter or request passwords. This demo shows listing + verification flow.</p>
+
+    <div class="card">
+      <h3>Create Listing (Seller)</h3>
+      <label>Seller name / contact</label>
+      <input id="seller_name" type="text" placeholder="Name or phone / WhatsApp">
+      <label>Game UID (required)</label>
+      <input id="uid" type="text" placeholder="e.g., 123456789">
+      <label>Server / Region</label>
+      <input id="server" type="text" placeholder="Pakistan / Asia">
+      <label>Short description (skins / rank)</label>
+      <textarea id="desc" rows="3"></textarea>
+      <label>Price (PKR)</label>
+      <input id="price" type="text" placeholder="e.g., 1200">
+      <label>Screenshots / Video links (optional)</label>
+      <input id="media" type="text" placeholder="paste image/video link(s) separated by comma">
+      <div style="margin-top:8px">
+        <button onclick="createListing()">Create Listing (demo)</button>
+      </div>
+      <p class="muted">Seller must provide screenshots or short video showing UID. No passwords.</p>
+    </div>
+
+    <div id="listingsArea" class="card">
+      <h3>Active Listings</h3>
+      <div id="listings"></div>
+    </div>
+
+    <div class="card">
+      <h3>Admin Verification Queue (Demo)</h3>
+      <div id="queue"></div>
+      <p class="muted">Admin can confirm ownership after reviewing uploaded proof. Then mark Verified to simulate escrow release.</p>
+    </div>
+  </div>
+
+<script>
+  // Simple in-memory demo
+  const listings = [];
+
+  function createListing(){
+    const seller = document.getElementById('seller_name').value || 'Anon';
+    const uid = document.getElementById('uid').value.trim();
+    if(!uid){ alert('UID required'); return; }
+    const server = document.getElementById('server').value;
+    const desc = document.getElementById('desc').value;
+    const price = document.getElementById('price').value || '0';
+    const media = document.getElementById('media').value;
+
+    const id = 'L'+Date.now();
+    const item = {id,seller,uid,server,desc,price,media,verified:false};
+    listings.unshift(item);
+    renderListings();
+    renderQueue();
+    alert('Listing created (demo). Seller: please upload proof links in "media" field.');
+  }
+
+  function renderListings(){
+    const el = document.getElementById('listings');
+    el.innerHTML = '';
+    listings.forEach(item=>{
+      const div = document.createElement('div');
+      div.className = 'listing';
+      div.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <strong>${item.uid}</strong> — <span class="small">${item.server}</span><br>
+            <span class="small">Price: PKR ${item.price} • Seller: ${item.seller}</span>
+          </div>
+          <div>
+            ${item.verified ? '<span style="color:green">Verified</span>' : '<button onclick="openBuy(\\'${item.id}\\')">Buy (demo)</button>'}
+          </div>
+        </div>
+        <div style="margin-top:8px">${item.desc ? escapeHtml(item.desc) : '<span class="muted">No description</span>'}</div>
+        <div class="small muted" style="margin-top:6px">Media: ${escapeHtml(item.media || 'none')}</div>
+      `;
+      el.appendChild(div);
+    });
+  }
+
+  function openBuy(id){
+    const item = listings.find(x=>x.id===id);
+    if(!item) return alert('Not found');
+    const ok = confirm('Demo buy: simulate payment to escrow for ' + item.uid + ' (PKR ' + item.price + ')?');
+    if(!ok) return;
+    alert('Payment simulated. Admin will now verify seller proof.');
+    // In real app, payment would create escrow transaction & notify admin
+  }
+
+  function renderQueue(){
+    const q = document.getElementById('queue');
+    q.innerHTML = '';
+    listings.forEach(item=>{
+      if(item.verified) return;
+      const d = document.createElement('div');
+      d.style.borderBottom='1px solid #eee'; d.style.padding='8px 0';
+      d.innerHTML = `
+        <div><strong>${item.uid}</strong> — Seller: ${escapeHtml(item.seller)} — Price: PKR ${item.price}</div>
+        <div class="small muted">Media: ${escapeHtml(item.media || 'none')}</div>
+        <div style="margin-top:6px">
+          <button onclick="markVerified('${item.id}')">Mark Verified (admin)</button>
+          <button onclick="reject('${item.id')"} style="margin-left:8px">Reject</button>
+        </div>
+      `;
+      q.appendChild(d);
+    });
+  }
+
+  function markVerified(id){
+    const item = listings.find(x=>x.id===id);
+    if(!item) return;
+    item.verified = true;
+    renderListings();
+    renderQueue();
+    alert('Marked verified. In real system escrow would release funds to seller now.');
+  }
+
+  function reject(id){
+    const idx = listings.findIndex(x=>x.id===id);
+    if(idx===-1) return;
+    if(!confirm('Reject listing and notify seller?')) return;
+    listings.splice(idx,1);
+    renderListings();
+    renderQueue();
+  }
+
+  function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>
